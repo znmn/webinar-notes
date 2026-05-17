@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.routes.auth import get_current_user
-from app.core.config import ALLOWED_CATEGORY
 from app.core.logger import get_logger
 from app.core.utils.datetime import utc_now
 from app.db.session import get_db
+from app.models.category import Category
 from app.models.note import Note
 from app.schemas.note import (
     NoteCreateBody,
@@ -29,7 +29,10 @@ def get_notes(
     """Return all notes that belong to the authenticated user."""
     try:
         user_notes = (
-            db.query(Note).filter(Note.user_id == current_user.id).all()
+            db.query(Note)
+            .options(joinedload(Note.category_rel))
+            .filter(Note.user_id == current_user.id)
+            .all()
         )
     except SQLAlchemyError as exc:
         logger.exception("Database error while listing notes")
@@ -53,6 +56,7 @@ def get_note_detail(
     try:
         note = (
             db.query(Note)
+            .options(joinedload(Note.category_rel))
             .filter(Note.id == note_id, Note.user_id == current_user.id)
             .first()
         )
@@ -78,7 +82,12 @@ def create_note(
     db: Session = Depends(get_db),
 ) -> NoteMutationResponse:
     """Create a new note for the authenticated user."""
-    if note_payload.category not in ALLOWED_CATEGORY:
+    category = (
+        db.query(Category)
+        .filter(Category.name == note_payload.category)
+        .first()
+    )
+    if category is None:
         logger.info("Rejected create note due to invalid category")
         raise HTTPException(status_code=400, detail="invalid category")
     if len(note_payload.title.strip()) == 0:
@@ -89,7 +98,7 @@ def create_note(
         user_id=current_user.id,
         title=note_payload.title,
         description=note_payload.description,
-        category=note_payload.category,
+        category_id=category.id,
         created_at=utc_now(),
         updated_at=utc_now(),
     )
@@ -123,6 +132,7 @@ def update_note(
     try:
         note = (
             db.query(Note)
+            .options(joinedload(Note.category_rel))
             .filter(Note.id == note_id, Note.user_id == current_user.id)
             .first()
         )
@@ -140,10 +150,15 @@ def update_note(
         raise HTTPException(status_code=404, detail="note not found")
 
     if note_update_payload.category is not None:
-        if note_update_payload.category not in ALLOWED_CATEGORY:
+        category = (
+            db.query(Category)
+            .filter(Category.name == note_update_payload.category)
+            .first()
+        )
+        if category is None:
             logger.info("Rejected update note due to invalid category")
             raise HTTPException(status_code=400, detail="invalid category")
-        setattr(note, "category", note_update_payload.category)
+        setattr(note, "category_id", category.id)
 
     if note_update_payload.title is not None:
         if len(note_update_payload.title.strip()) == 0:
