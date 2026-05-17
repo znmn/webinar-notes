@@ -32,7 +32,6 @@ class NoteUpdateBody(BaseModel):
 
 class NoteResponse(BaseModel):
     id: int
-    user_id: int
     title: str
     description: str | None
     category: str
