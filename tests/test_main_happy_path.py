@@ -10,8 +10,8 @@ os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
 
 import main  # noqa: E402
+from app.db.seeds.categories import seed_categories  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
-from app.models.category import Category  # noqa: E402
 
 
 def _auth_header(token: str) -> dict[str, str]:
@@ -23,15 +23,7 @@ def setup_module() -> None:
     main.Base.metadata.create_all(bind=main.engine)
     db = SessionLocal()
     try:
-        db.add_all(
-            [
-                Category(name="work"),
-                Category(name="personal"),
-                Category(name="finance"),
-                Category(name="learning"),
-                Category(name="other"),
-            ]
-        )
+        seed_categories(db)
         db.commit()
     finally:
         db.close()

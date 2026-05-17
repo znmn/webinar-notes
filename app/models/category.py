@@ -3,6 +3,14 @@ from sqlalchemy.orm import relationship
 
 from app.db.base import Base
 
+DEFAULT_CATEGORY_NAMES = (
+    "work",
+    "personal",
+    "finance",
+    "learning",
+    "other",
+)
+
 
 class Category(Base):
     __tablename__ = "categories"
