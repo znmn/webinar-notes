@@ -23,6 +23,7 @@ def get_notes(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> NotesListResponse:
+    """Return all notes that belong to the authenticated user."""
     user_notes = db.query(Note).filter(Note.user_id == current_user.id).all()
     note_list = [
         NoteResponse.model_validate(note, from_attributes=True)
@@ -37,6 +38,7 @@ def get_note_detail(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> NoteResponse:
+    """Return detail for one note owned by the authenticated user."""
     note = (
         db.query(Note)
         .filter(Note.id == note_id, Note.user_id == current_user.id)
@@ -53,6 +55,7 @@ def create_note(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> NoteMutationResponse:
+    """Create a new note for the authenticated user."""
     if note_payload.category not in ALLOWED_CATEGORY:
         raise HTTPException(status_code=400, detail="invalid category")
     if len(note_payload.title.strip()) == 0:
@@ -82,6 +85,7 @@ def update_note(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> NoteMutationResponse:
+    """Update an existing note owned by the authenticated user."""
     note = (
         db.query(Note)
         .filter(Note.id == note_id, Note.user_id == current_user.id)
@@ -122,6 +126,7 @@ def remove_note(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> NoteDeleteResponse:
+    """Delete a note owned by the authenticated user."""
     note = (
         db.query(Note)
         .filter(Note.id == note_id, Note.user_id == current_user.id)

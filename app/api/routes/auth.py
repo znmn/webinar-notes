@@ -24,6 +24,7 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
+    """Validate bearer token and return the authenticated user."""
     if not credentials:
         raise HTTPException(
             status_code=401,
@@ -54,6 +55,7 @@ def get_current_user(
 def register(
     body: RegisterBody, db: Session = Depends(get_db)
 ) -> RegisterResponse:
+    """Register a new user account."""
     existing = db.query(User).filter(User.email == body.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="email already used")
@@ -76,6 +78,7 @@ def register(
 def login(
     login_body: LoginBody, db: Session = Depends(get_db)
 ) -> LoginResponse:
+    """Authenticate user credentials and return an access token."""
     user = db.query(User).filter(User.email == login_body.email).first()
     if not user:
         raise HTTPException(status_code=401, detail="email/password salah")
