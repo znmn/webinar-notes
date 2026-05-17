@@ -1,10 +1,9 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.routes.auth import get_current_user
 from app.core.config import ALLOWED_CATEGORY
+from app.core.utils.datetime import utc_now
 from app.db.session import get_db
 from app.models.note import Note
 from app.schemas.note import NoteCreateBody, NoteUpdateBody
@@ -70,8 +69,8 @@ def create_note(
         title=data.title,
         description=data.description,
         category=data.category,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=utc_now(),
+        updated_at=utc_now(),
     )
     db.add(note)
     db.commit()
@@ -117,7 +116,7 @@ def update_note(
     if data.description is not None:
         setattr(note, "description", data.description)
 
-    setattr(note, "updated_at", datetime.utcnow())
+    setattr(note, "updated_at", utc_now())
     db.commit()
     db.refresh(note)
 
