@@ -94,3 +94,74 @@ def test_happy_path_notes_crud() -> None:
     list_after_delete_res = client.get("/notes", headers=_auth_header(token))
     assert list_after_delete_res.status_code == 200
     assert list_after_delete_res.json()["count"] == 0
+
+
+def test_notes_access_isolated_per_user() -> None:
+    client = TestClient(main.app)
+
+    user1_register = client.post(
+        "/register",
+        json={
+            "name": "Bob",
+            "email": "bob@example.com",
+            "password": "secret123",
+        },
+    )
+    assert user1_register.status_code == 200
+    user1_login = client.post(
+        "/login",
+        json={"email": "bob@example.com", "password": "secret123"},
+    )
+    assert user1_login.status_code == 200
+    token_user1 = user1_login.json()["access_token"]
+
+    user2_register = client.post(
+        "/register",
+        json={
+            "name": "Charlie",
+            "email": "charlie@example.com",
+            "password": "secret123",
+        },
+    )
+    assert user2_register.status_code == 200
+    user2_login = client.post(
+        "/login",
+        json={"email": "charlie@example.com", "password": "secret123"},
+    )
+    assert user2_login.status_code == 200
+    token_user2 = user2_login.json()["access_token"]
+
+    create_res = client.post(
+        "/notes",
+        headers=_auth_header(token_user1),
+        json={
+            "user_id": 99999,
+            "title": "Private note",
+            "description": "owned by bob",
+            "category": "work",
+        },
+    )
+    assert create_res.status_code == 200
+    note_id = create_res.json()["note"]["id"]
+    assert create_res.json()["note"]["user_id"] != 99999
+
+    user2_list = client.get("/notes", headers=_auth_header(token_user2))
+    assert user2_list.status_code == 200
+    assert user2_list.json()["count"] == 0
+
+    user2_detail = client.get(
+        f"/notes/{note_id}", headers=_auth_header(token_user2)
+    )
+    assert user2_detail.status_code == 404
+
+    user2_update = client.put(
+        f"/notes/{note_id}",
+        headers=_auth_header(token_user2),
+        json={"title": "hacked"},
+    )
+    assert user2_update.status_code == 404
+
+    user2_delete = client.delete(
+        f"/notes/{note_id}", headers=_auth_header(token_user2)
+    )
+    assert user2_delete.status_code == 404

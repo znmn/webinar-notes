@@ -13,10 +13,10 @@ router = APIRouter()
 
 @router.get("/notes")
 def get_notes(
-    current=Depends(get_current_user),
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    all_notes = db.query(Note).all()
+    all_notes = db.query(Note).filter(Note.user_id == current_user.id).all()
     result = []
     for note in all_notes:
         result.append(
@@ -36,10 +36,14 @@ def get_notes(
 @router.get("/notes/{id}")
 def get_note_detail(
     id: int,
-    current=Depends(get_current_user),
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    note = db.query(Note).filter(Note.id == id).first()
+    note = (
+        db.query(Note)
+        .filter(Note.id == id, Note.user_id == current_user.id)
+        .first()
+    )
     if not note:
         raise HTTPException(status_code=404, detail="note not found")
     return {
@@ -65,7 +69,7 @@ def create_note(
         raise HTTPException(status_code=400, detail="title cannot be empty")
 
     note = Note(
-        user_id=data.user_id,
+        user_id=current_user.id,
         title=data.title,
         description=data.description,
         category=data.category,
@@ -93,10 +97,14 @@ def create_note(
 def update_note(
     id: int,
     data: NoteUpdateBody,
-    current=Depends(get_current_user),
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    note = db.query(Note).filter(Note.id == id).first()
+    note = (
+        db.query(Note)
+        .filter(Note.id == id, Note.user_id == current_user.id)
+        .first()
+    )
     if not note:
         raise HTTPException(status_code=404, detail="note not found")
 
@@ -139,7 +147,11 @@ def remove_note(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    note = db.query(Note).filter(Note.id == id).first()
+    note = (
+        db.query(Note)
+        .filter(Note.id == id, Note.user_id == current_user.id)
+        .first()
+    )
     if not note:
         raise HTTPException(status_code=404, detail="note not found")
 
