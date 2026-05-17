@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
@@ -23,15 +24,32 @@ logger = get_logger(__name__)
 
 @router.get("/notes", response_model=NotesListResponse)
 def get_notes(
+    search: str | None = Query(default=None, min_length=1, max_length=200),
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=10, ge=1, le=100),
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> NotesListResponse:
     """Return all notes that belong to the authenticated user."""
     try:
-        user_notes = (
+        query = (
             db.query(Note)
             .options(joinedload(Note.category_rel))
             .filter(Note.user_id == current_user.id)
+        )
+        if search is not None:
+            search_term = f"%{search.strip()}%"
+            query = query.filter(
+                or_(
+                    Note.title.ilike(search_term),
+                    Note.description.ilike(search_term),
+                )
+            )
+        total = query.count()
+        user_notes = (
+            query.order_by(Note.id.desc())
+            .offset((page - 1) * size)
+            .limit(size)
             .all()
         )
     except SQLAlchemyError as exc:
@@ -43,7 +61,13 @@ def get_notes(
         NoteResponse.model_validate(note, from_attributes=True)
         for note in user_notes
     ]
-    return NotesListResponse(count=len(note_list), notes=note_list)
+    return NotesListResponse(
+        count=len(note_list),
+        total=total,
+        page=page,
+        size=size,
+        notes=note_list,
+    )
 
 
 @router.get("/notes/{note_id}", response_model=NoteResponse)

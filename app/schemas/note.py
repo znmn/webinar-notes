@@ -42,6 +42,9 @@ class NoteResponse(BaseModel):
 
 class NotesListResponse(BaseModel):
     count: int
+    total: int
+    page: int
+    size: int
     notes: list[NoteResponse]
 
 
