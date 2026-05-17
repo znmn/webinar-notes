@@ -1,17 +1,52 @@
-﻿from datetime import datetime, timedelta
+import os
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Depends, HTTPException, Header
-from pydantic import BaseModel, EmailStr
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
 import jwt
+from fastapi import Depends, FastAPI, Header, HTTPException
+from pydantic import BaseModel, EmailStr
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    create_engine,
+)
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session, sessionmaker
 
-DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/notes"
-SECRET = "supersecretjwtkey"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 120
+
+def _load_env_file() -> None:
+    env_path = Path(__file__).resolve().parent / ".env"
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+def _get_env(name: str) -> str:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        raise ValueError(f"Environment variable '{name}' is required")
+    return value
+
+
+_load_env_file()
+
+DATABASE_URL = _get_env("DATABASE_URL")
+SECRET = _get_env("SECRET")
+ALGORITHM = _get_env("ALGORITHM")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(_get_env("ACCESS_TOKEN_EXPIRE_MINUTES"))
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -83,11 +118,17 @@ def make_token(data: dict):
     return t
 
 
-def get_current_user(authorization: str = Header(default=None), db: Session = Depends(get_db)):
+def get_current_user(
+    authorization: str = Header(default=None), db: Session = Depends(get_db)
+):
     if not authorization:
-        raise HTTPException(status_code=401, detail="missing authorization header")
+        raise HTTPException(
+            status_code=401, detail="missing authorization header"
+        )
     if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="invalid authorization format")
+        raise HTTPException(
+            status_code=401, detail="invalid authorization format"
+        )
 
     token = authorization.split(" ")[1]
     try:
@@ -143,7 +184,9 @@ def login(payload: LoginBody, db: Session = Depends(get_db)):
 
 
 @app.get("/notes")
-def get_notes(current=Depends(get_current_user), db: Session = Depends(get_db)):
+def get_notes(
+    current=Depends(get_current_user), db: Session = Depends(get_db)
+):
     all_notes = db.query(Note).all()
     result = []
     for n in all_notes:
@@ -162,7 +205,9 @@ def get_notes(current=Depends(get_current_user), db: Session = Depends(get_db)):
 
 
 @app.get("/notes/{id}")
-def get_note_detail(id: int, current=Depends(get_current_user), db: Session = Depends(get_db)):
+def get_note_detail(
+    id: int, current=Depends(get_current_user), db: Session = Depends(get_db)
+):
     note = db.query(Note).filter(Note.id == id).first()
     if not note:
         raise HTTPException(status_code=404, detail="note not found")
@@ -178,7 +223,11 @@ def get_note_detail(id: int, current=Depends(get_current_user), db: Session = De
 
 
 @app.post("/notes")
-def create_note(data: NoteCreateBody, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+def create_note(
+    data: NoteCreateBody,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     if data.category not in ALLOWED_CATEGORY:
         raise HTTPException(status_code=400, detail="invalid category")
     if len(data.title.strip()) == 0:
@@ -210,7 +259,12 @@ def create_note(data: NoteCreateBody, current_user=Depends(get_current_user), db
 
 
 @app.put("/notes/{id}")
-def update_note(id: int, data: NoteUpdateBody, current=Depends(get_current_user), db: Session = Depends(get_db)):
+def update_note(
+    id: int,
+    data: NoteUpdateBody,
+    current=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     note = db.query(Note).filter(Note.id == id).first()
     if not note:
         raise HTTPException(status_code=404, detail="note not found")
@@ -218,17 +272,19 @@ def update_note(id: int, data: NoteUpdateBody, current=Depends(get_current_user)
     if data.category is not None:
         if data.category not in ALLOWED_CATEGORY:
             raise HTTPException(status_code=400, detail="invalid category")
-        note.category = data.category
+        setattr(note, "category", data.category)
 
     if data.title is not None:
         if len(data.title.strip()) == 0:
-            raise HTTPException(status_code=400, detail="title cannot be empty")
-        note.title = data.title
+            raise HTTPException(
+                status_code=400, detail="title cannot be empty"
+            )
+        setattr(note, "title", data.title)
 
     if data.description is not None:
-        note.description = data.description
+        setattr(note, "description", data.description)
 
-    note.updated_at = datetime.utcnow()
+    setattr(note, "updated_at", datetime.utcnow())
     db.commit()
     db.refresh(note)
 
@@ -246,7 +302,11 @@ def update_note(id: int, data: NoteUpdateBody, current=Depends(get_current_user)
 
 
 @app.delete("/notes/{id}")
-def remove_note(id: int, currentUser=Depends(get_current_user), db: Session = Depends(get_db)):
+def remove_note(
+    id: int,
+    currentUser=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     note = db.query(Note).filter(Note.id == id).first()
     if not note:
         raise HTTPException(status_code=404, detail="note not found")
