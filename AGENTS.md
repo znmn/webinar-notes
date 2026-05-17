@@ -2,8 +2,8 @@
 
 Setelah selesai menulis atau mengubah kode Python, **wajib** jalankan langkah berikut untuk file yang diubah (`[files]`) dengan urutan ini:
 
-1. `uv run -m ruff check [files]`
-2. `uv run -m ruff format [files]`
+1. `uv run -m ruff format [files]`
+2. `uv run -m ruff check --fix [files]`
 3. `uv run -m basedpyright [files]`
 4. `uv run -m pytest`
 
