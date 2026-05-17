@@ -6,39 +6,37 @@ from app.core.config import ALLOWED_CATEGORY
 from app.core.utils.datetime import utc_now
 from app.db.session import get_db
 from app.models.note import Note
-from app.schemas.note import NoteCreateBody, NoteUpdateBody
+from app.schemas.note import (
+    NoteCreateBody,
+    NoteDeleteResponse,
+    NoteMutationResponse,
+    NoteResponse,
+    NotesListResponse,
+    NoteUpdateBody,
+)
 
 router = APIRouter()
 
 
-@router.get("/notes")
+@router.get("/notes", response_model=NotesListResponse)
 def get_notes(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> NotesListResponse:
     user_notes = db.query(Note).filter(Note.user_id == current_user.id).all()
-    note_list = []
-    for note in user_notes:
-        note_list.append(
-            {
-                "id": note.id,
-                "user_id": note.user_id,
-                "title": note.title,
-                "description": note.description,
-                "category": note.category,
-                "created_at": note.created_at,
-                "updated_at": note.updated_at,
-            }
-        )
-    return {"count": len(note_list), "notes": note_list}
+    note_list = [
+        NoteResponse.model_validate(note, from_attributes=True)
+        for note in user_notes
+    ]
+    return NotesListResponse(count=len(note_list), notes=note_list)
 
 
-@router.get("/notes/{note_id}")
+@router.get("/notes/{note_id}", response_model=NoteResponse)
 def get_note_detail(
     note_id: int,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> NoteResponse:
     note = (
         db.query(Note)
         .filter(Note.id == note_id, Note.user_id == current_user.id)
@@ -46,23 +44,15 @@ def get_note_detail(
     )
     if not note:
         raise HTTPException(status_code=404, detail="note not found")
-    return {
-        "id": note.id,
-        "user_id": note.user_id,
-        "title": note.title,
-        "description": note.description,
-        "category": note.category,
-        "created_at": note.created_at,
-        "updated_at": note.updated_at,
-    }
+    return NoteResponse.model_validate(note, from_attributes=True)
 
 
-@router.post("/notes")
+@router.post("/notes", response_model=NoteMutationResponse)
 def create_note(
     note_payload: NoteCreateBody,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> NoteMutationResponse:
     if note_payload.category not in ALLOWED_CATEGORY:
         raise HTTPException(status_code=400, detail="invalid category")
     if len(note_payload.title.strip()) == 0:
@@ -79,27 +69,19 @@ def create_note(
     db.add(note)
     db.commit()
     db.refresh(note)
-    return {
-        "message": "note created",
-        "note": {
-            "id": note.id,
-            "user_id": note.user_id,
-            "title": note.title,
-            "description": note.description,
-            "category": note.category,
-            "created_at": note.created_at,
-            "updated_at": note.updated_at,
-        },
-    }
+    return NoteMutationResponse(
+        message="note created",
+        note=NoteResponse.model_validate(note, from_attributes=True),
+    )
 
 
-@router.put("/notes/{note_id}")
+@router.put("/notes/{note_id}", response_model=NoteMutationResponse)
 def update_note(
     note_id: int,
     note_update_payload: NoteUpdateBody,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> NoteMutationResponse:
     note = (
         db.query(Note)
         .filter(Note.id == note_id, Note.user_id == current_user.id)
@@ -128,25 +110,18 @@ def update_note(
     db.commit()
     db.refresh(note)
 
-    return {
-        "message": "note updated",
-        "note": {
-            "id": note.id,
-            "user_id": note.user_id,
-            "title": note.title,
-            "description": note.description,
-            "category": note.category,
-            "updated_at": note.updated_at,
-        },
-    }
+    return NoteMutationResponse(
+        message="note updated",
+        note=NoteResponse.model_validate(note, from_attributes=True),
+    )
 
 
-@router.delete("/notes/{note_id}")
+@router.delete("/notes/{note_id}", response_model=NoteDeleteResponse)
 def remove_note(
     note_id: int,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> NoteDeleteResponse:
     note = (
         db.query(Note)
         .filter(Note.id == note_id, Note.user_id == current_user.id)
@@ -158,4 +133,4 @@ def remove_note(
     db.delete(note)
     db.commit()
 
-    return {"message": "note deleted", "deleted_id": note_id}
+    return NoteDeleteResponse(message="note deleted", deleted_id=note_id)
