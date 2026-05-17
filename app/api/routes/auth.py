@@ -1,31 +1,34 @@
 import jwt
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.config import ALGORITHM, SECRET
-from app.core.security import make_token
+from app.core.security import get_password_hash, make_token, verify_password
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import LoginBody, RegisterBody
 
 router = APIRouter()
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
-    authorization: str = Header(default=None), db: Session = Depends(get_db)
+    credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
+    db: Session = Depends(get_db),
 ):
-    if not authorization:
+    if not credentials:
         raise HTTPException(
             status_code=401,
             detail="missing authorization header",
         )
-    if not authorization.startswith("Bearer "):
+    if credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=401,
             detail="invalid authorization format",
         )
 
-    token = authorization.split(" ")[1]
+    token = credentials.credentials
     try:
         payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM])
         uid = payload.get("user_id")
@@ -46,7 +49,11 @@ def register(body: RegisterBody, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="email already used")
 
-    user = User(name=body.name, email=body.email, password=body.password)
+    user = User(
+        name=body.name,
+        email=body.email,
+        password=get_password_hash(body.password),
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -67,7 +74,7 @@ def login(payload: LoginBody, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="email/password salah")
 
-    if payload.password != user.password:
+    if not verify_password(payload.password, str(user.password)):
         raise HTTPException(status_code=401, detail="email/password salah")
 
     token = make_token({"user_id": user.id, "email": user.email})

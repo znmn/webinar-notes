@@ -1,10 +1,9 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.routes.auth import get_current_user
 from app.core.config import ALLOWED_CATEGORY
+from app.core.utils.datetime import utc_now
 from app.db.session import get_db
 from app.models.note import Note
 from app.schemas.note import NoteCreateBody, NoteUpdateBody
@@ -14,10 +13,10 @@ router = APIRouter()
 
 @router.get("/notes")
 def get_notes(
-    current=Depends(get_current_user),
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    all_notes = db.query(Note).all()
+    all_notes = db.query(Note).filter(Note.user_id == current_user.id).all()
     result = []
     for note in all_notes:
         result.append(
@@ -37,10 +36,14 @@ def get_notes(
 @router.get("/notes/{id}")
 def get_note_detail(
     id: int,
-    current=Depends(get_current_user),
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    note = db.query(Note).filter(Note.id == id).first()
+    note = (
+        db.query(Note)
+        .filter(Note.id == id, Note.user_id == current_user.id)
+        .first()
+    )
     if not note:
         raise HTTPException(status_code=404, detail="note not found")
     return {
@@ -66,12 +69,12 @@ def create_note(
         raise HTTPException(status_code=400, detail="title cannot be empty")
 
     note = Note(
-        user_id=data.user_id,
+        user_id=current_user.id,
         title=data.title,
         description=data.description,
         category=data.category,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=utc_now(),
+        updated_at=utc_now(),
     )
     db.add(note)
     db.commit()
@@ -94,10 +97,14 @@ def create_note(
 def update_note(
     id: int,
     data: NoteUpdateBody,
-    current=Depends(get_current_user),
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    note = db.query(Note).filter(Note.id == id).first()
+    note = (
+        db.query(Note)
+        .filter(Note.id == id, Note.user_id == current_user.id)
+        .first()
+    )
     if not note:
         raise HTTPException(status_code=404, detail="note not found")
 
@@ -117,7 +124,7 @@ def update_note(
     if data.description is not None:
         setattr(note, "description", data.description)
 
-    setattr(note, "updated_at", datetime.utcnow())
+    setattr(note, "updated_at", utc_now())
     db.commit()
     db.refresh(note)
 
@@ -140,7 +147,11 @@ def remove_note(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    note = db.query(Note).filter(Note.id == id).first()
+    note = (
+        db.query(Note)
+        .filter(Note.id == id, Note.user_id == current_user.id)
+        .first()
+    )
     if not note:
         raise HTTPException(status_code=404, detail="note not found")
 
