@@ -19,7 +19,7 @@ dependencies = [
 [tool.ruff]
 line-length = 79
 target-version = "py311"
-src = ["app", "tests", "alembic"]
+src = ["app", "tests", "alembic", "scripts"]
 exclude = [
   ".venv",
   "__pycache__",
@@ -35,7 +35,7 @@ select = ["E", "W", "F", "I"]
 
 [tool.basedpyright]
 pythonVersion = "3.11"
-include = ["app", "tests", "alembic"]
+include = ["app", "tests", "alembic", "scripts"]
 exclude = [
   ".venv",
   "__pycache__",

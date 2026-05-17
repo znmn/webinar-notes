@@ -1,17 +1,25 @@
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, StringConstraints
+
+NameStr = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+]
+PasswordStr = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=8, max_length=128)
+]
 
 
 class RegisterBody(BaseModel):
-    name: str
+    name: NameStr
     email: EmailStr
-    password: str
+    password: PasswordStr
 
 
 class LoginBody(BaseModel):
     email: EmailStr
-    password: str
+    password: PasswordStr
 
 
 class UserPublic(BaseModel):

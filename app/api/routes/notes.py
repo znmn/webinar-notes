@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.routes.auth import get_current_user
-from app.core.config import ALLOWED_CATEGORY
 from app.core.logger import get_logger
 from app.core.utils.datetime import utc_now
 from app.db.session import get_db
+from app.models.category import Category
 from app.models.note import Note
 from app.schemas.note import (
     NoteCreateBody,
@@ -17,19 +18,39 @@ from app.schemas.note import (
     NoteUpdateBody,
 )
 
-router = APIRouter()
+router = APIRouter(tags=["notes"])
 logger = get_logger(__name__)
 
 
 @router.get("/notes", response_model=NotesListResponse)
 def get_notes(
+    search: str | None = Query(default=None, min_length=1, max_length=200),
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=10, ge=1, le=100),
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> NotesListResponse:
     """Return all notes that belong to the authenticated user."""
     try:
+        query = (
+            db.query(Note)
+            .options(joinedload(Note.category_rel))
+            .filter(Note.user_id == current_user.id)
+        )
+        if search is not None:
+            search_term = f"%{search.strip()}%"
+            query = query.filter(
+                or_(
+                    Note.title.ilike(search_term),
+                    Note.description.ilike(search_term),
+                )
+            )
+        total = query.count()
         user_notes = (
-            db.query(Note).filter(Note.user_id == current_user.id).all()
+            query.order_by(Note.id.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+            .all()
         )
     except SQLAlchemyError as exc:
         logger.exception("Database error while listing notes")
@@ -40,7 +61,13 @@ def get_notes(
         NoteResponse.model_validate(note, from_attributes=True)
         for note in user_notes
     ]
-    return NotesListResponse(count=len(note_list), notes=note_list)
+    return NotesListResponse(
+        count=len(note_list),
+        total=total,
+        page=page,
+        size=size,
+        notes=note_list,
+    )
 
 
 @router.get("/notes/{note_id}", response_model=NoteResponse)
@@ -53,6 +80,7 @@ def get_note_detail(
     try:
         note = (
             db.query(Note)
+            .options(joinedload(Note.category_rel))
             .filter(Note.id == note_id, Note.user_id == current_user.id)
             .first()
         )
@@ -78,18 +106,20 @@ def create_note(
     db: Session = Depends(get_db),
 ) -> NoteMutationResponse:
     """Create a new note for the authenticated user."""
-    if note_payload.category not in ALLOWED_CATEGORY:
+    category = (
+        db.query(Category)
+        .filter(Category.name == note_payload.category)
+        .first()
+    )
+    if category is None:
         logger.info("Rejected create note due to invalid category")
         raise HTTPException(status_code=400, detail="invalid category")
-    if len(note_payload.title.strip()) == 0:
-        logger.info("Rejected create note due to empty title")
-        raise HTTPException(status_code=400, detail="title cannot be empty")
 
     note = Note(
         user_id=current_user.id,
         title=note_payload.title,
         description=note_payload.description,
-        category=note_payload.category,
+        category_id=category.id,
         created_at=utc_now(),
         updated_at=utc_now(),
     )
@@ -123,6 +153,7 @@ def update_note(
     try:
         note = (
             db.query(Note)
+            .options(joinedload(Note.category_rel))
             .filter(Note.id == note_id, Note.user_id == current_user.id)
             .first()
         )
@@ -140,18 +171,17 @@ def update_note(
         raise HTTPException(status_code=404, detail="note not found")
 
     if note_update_payload.category is not None:
-        if note_update_payload.category not in ALLOWED_CATEGORY:
+        category = (
+            db.query(Category)
+            .filter(Category.name == note_update_payload.category)
+            .first()
+        )
+        if category is None:
             logger.info("Rejected update note due to invalid category")
             raise HTTPException(status_code=400, detail="invalid category")
-        setattr(note, "category", note_update_payload.category)
+        setattr(note, "category_id", category.id)
 
     if note_update_payload.title is not None:
-        if len(note_update_payload.title.strip()) == 0:
-            logger.info("Rejected update note due to empty title")
-            raise HTTPException(
-                status_code=400,
-                detail="title cannot be empty",
-            )
         setattr(note, "title", note_update_payload.title)
 
     if note_update_payload.description is not None:

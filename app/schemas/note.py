@@ -1,24 +1,37 @@
 from datetime import datetime
-from typing import Optional
+from typing import Annotated, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
+
+TitleStr = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+]
+DescriptionStr = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=4000),
+]
+CategoryNameStr = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True, to_lower=True, min_length=1, max_length=50
+    ),
+]
 
 
 class NoteCreateBody(BaseModel):
-    title: str
-    description: Optional[str] = None
-    category: str
+    title: TitleStr
+    description: Optional[DescriptionStr] = None
+    category: CategoryNameStr
 
 
 class NoteUpdateBody(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    category: Optional[str] = None
+    title: Optional[TitleStr] = None
+    description: Optional[DescriptionStr] = None
+    category: Optional[CategoryNameStr] = None
 
 
 class NoteResponse(BaseModel):
     id: int
-    user_id: int
     title: str
     description: str | None
     category: str
@@ -28,6 +41,9 @@ class NoteResponse(BaseModel):
 
 class NotesListResponse(BaseModel):
     count: int
+    total: int
+    page: int
+    size: int
     notes: list[NoteResponse]
 
 

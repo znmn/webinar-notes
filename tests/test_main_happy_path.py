@@ -10,6 +10,8 @@ os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
 
 import main  # noqa: E402
+from app.db.seeds.categories import seed_categories  # noqa: E402
+from app.db.session import SessionLocal  # noqa: E402
 
 
 def _auth_header(token: str) -> dict[str, str]:
@@ -19,6 +21,12 @@ def _auth_header(token: str) -> dict[str, str]:
 def setup_module() -> None:
     main.Base.metadata.drop_all(bind=main.engine)
     main.Base.metadata.create_all(bind=main.engine)
+    db = SessionLocal()
+    try:
+        seed_categories(db)
+        db.commit()
+    finally:
+        db.close()
 
 
 def teardown_module() -> None:
@@ -46,6 +54,28 @@ def test_happy_path_notes_crud() -> None:
     )
     assert login_res.status_code == 200
     token = login_res.json()["access_token"]
+    categories_res = client.get("/categories", headers=_auth_header(token))
+    assert categories_res.status_code == 200
+    categories_payload = categories_res.json()
+    assert categories_payload["count"] == 5
+    assert categories_payload["total"] == 5
+    assert categories_payload["page"] == 1
+    assert categories_payload["size"] == 10
+    assert [c["name"] for c in categories_payload["categories"]] == [
+        "finance",
+        "learning",
+        "other",
+        "personal",
+        "work",
+    ]
+    categories_search_res = client.get(
+        "/categories?search=wor&page=1&size=1", headers=_auth_header(token)
+    )
+    assert categories_search_res.status_code == 200
+    categories_search_payload = categories_search_res.json()
+    assert categories_search_payload["count"] == 1
+    assert categories_search_payload["total"] == 1
+    assert categories_search_payload["categories"][0]["name"] == "work"
 
     create_res = client.post(
         "/notes",
@@ -65,7 +95,18 @@ def test_happy_path_notes_crud() -> None:
     assert list_res.status_code == 200
     notes_list_response = list_res.json()
     assert notes_list_response["count"] == 1
+    assert notes_list_response["total"] == 1
+    assert notes_list_response["page"] == 1
+    assert notes_list_response["size"] == 10
     assert notes_list_response["notes"][0]["id"] == note_id
+    notes_search_res = client.get(
+        "/notes?search=First&page=1&size=1", headers=_auth_header(token)
+    )
+    assert notes_search_res.status_code == 200
+    notes_search_payload = notes_search_res.json()
+    assert notes_search_payload["count"] == 1
+    assert notes_search_payload["total"] == 1
+    assert notes_search_payload["notes"][0]["id"] == note_id
 
     detail_res = client.get(f"/notes/{note_id}", headers=_auth_header(token))
     assert detail_res.status_code == 200
@@ -90,6 +131,7 @@ def test_happy_path_notes_crud() -> None:
     list_after_delete_res = client.get("/notes", headers=_auth_header(token))
     assert list_after_delete_res.status_code == 200
     assert list_after_delete_res.json()["count"] == 0
+    assert list_after_delete_res.json()["total"] == 0
 
 
 def test_notes_access_isolated_per_user() -> None:

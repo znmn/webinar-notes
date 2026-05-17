@@ -18,7 +18,7 @@ from app.schemas.auth import (
     UserPublic,
 )
 
-router = APIRouter()
+router = APIRouter(tags=["auth"])
 bearer_scheme = HTTPBearer(auto_error=False)
 logger = get_logger(__name__)
 
