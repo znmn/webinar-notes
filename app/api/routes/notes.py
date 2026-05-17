@@ -16,10 +16,10 @@ def get_notes(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    all_notes = db.query(Note).filter(Note.user_id == current_user.id).all()
-    result = []
-    for note in all_notes:
-        result.append(
+    user_notes = db.query(Note).filter(Note.user_id == current_user.id).all()
+    note_list = []
+    for note in user_notes:
+        note_list.append(
             {
                 "id": note.id,
                 "user_id": note.user_id,
@@ -30,18 +30,18 @@ def get_notes(
                 "updated_at": note.updated_at,
             }
         )
-    return {"count": len(result), "notes": result}
+    return {"count": len(note_list), "notes": note_list}
 
 
-@router.get("/notes/{id}")
+@router.get("/notes/{note_id}")
 def get_note_detail(
-    id: int,
+    note_id: int,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     note = (
         db.query(Note)
-        .filter(Note.id == id, Note.user_id == current_user.id)
+        .filter(Note.id == note_id, Note.user_id == current_user.id)
         .first()
     )
     if not note:
@@ -59,20 +59,20 @@ def get_note_detail(
 
 @router.post("/notes")
 def create_note(
-    data: NoteCreateBody,
+    note_payload: NoteCreateBody,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if data.category not in ALLOWED_CATEGORY:
+    if note_payload.category not in ALLOWED_CATEGORY:
         raise HTTPException(status_code=400, detail="invalid category")
-    if len(data.title.strip()) == 0:
+    if len(note_payload.title.strip()) == 0:
         raise HTTPException(status_code=400, detail="title cannot be empty")
 
     note = Note(
         user_id=current_user.id,
-        title=data.title,
-        description=data.description,
-        category=data.category,
+        title=note_payload.title,
+        description=note_payload.description,
+        category=note_payload.category,
         created_at=utc_now(),
         updated_at=utc_now(),
     )
@@ -93,36 +93,36 @@ def create_note(
     }
 
 
-@router.put("/notes/{id}")
+@router.put("/notes/{note_id}")
 def update_note(
-    id: int,
-    data: NoteUpdateBody,
+    note_id: int,
+    note_update_payload: NoteUpdateBody,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     note = (
         db.query(Note)
-        .filter(Note.id == id, Note.user_id == current_user.id)
+        .filter(Note.id == note_id, Note.user_id == current_user.id)
         .first()
     )
     if not note:
         raise HTTPException(status_code=404, detail="note not found")
 
-    if data.category is not None:
-        if data.category not in ALLOWED_CATEGORY:
+    if note_update_payload.category is not None:
+        if note_update_payload.category not in ALLOWED_CATEGORY:
             raise HTTPException(status_code=400, detail="invalid category")
-        setattr(note, "category", data.category)
+        setattr(note, "category", note_update_payload.category)
 
-    if data.title is not None:
-        if len(data.title.strip()) == 0:
+    if note_update_payload.title is not None:
+        if len(note_update_payload.title.strip()) == 0:
             raise HTTPException(
                 status_code=400,
                 detail="title cannot be empty",
             )
-        setattr(note, "title", data.title)
+        setattr(note, "title", note_update_payload.title)
 
-    if data.description is not None:
-        setattr(note, "description", data.description)
+    if note_update_payload.description is not None:
+        setattr(note, "description", note_update_payload.description)
 
     setattr(note, "updated_at", utc_now())
     db.commit()
@@ -141,15 +141,15 @@ def update_note(
     }
 
 
-@router.delete("/notes/{id}")
+@router.delete("/notes/{note_id}")
 def remove_note(
-    id: int,
+    note_id: int,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     note = (
         db.query(Note)
-        .filter(Note.id == id, Note.user_id == current_user.id)
+        .filter(Note.id == note_id, Note.user_id == current_user.id)
         .first()
     )
     if not note:
@@ -158,4 +158,4 @@ def remove_note(
     db.delete(note)
     db.commit()
 
-    return {"message": "note deleted", "deleted_id": id}
+    return {"message": "note deleted", "deleted_id": note_id}

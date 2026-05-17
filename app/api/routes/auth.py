@@ -30,14 +30,14 @@ def get_current_user(
 
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM])
-        uid = payload.get("user_id")
-        if uid is None:
+        token_claims = jwt.decode(token, SECRET, algorithms=[ALGORITHM])
+        user_id = token_claims.get("user_id")
+        if user_id is None:
             raise HTTPException(status_code=401, detail="bad token")
     except Exception as exc:
         raise HTTPException(status_code=401, detail="invalid token") from exc
 
-    user = db.query(User).filter(User.id == uid).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="user not found")
     return user
@@ -69,12 +69,12 @@ def register(body: RegisterBody, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(payload: LoginBody, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+def login(login_body: LoginBody, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == login_body.email).first()
     if not user:
         raise HTTPException(status_code=401, detail="email/password salah")
 
-    if not verify_password(payload.password, str(user.password)):
+    if not verify_password(login_body.password, str(user.password)):
         raise HTTPException(status_code=401, detail="email/password salah")
 
     token = make_token({"user_id": user.id, "email": user.email})

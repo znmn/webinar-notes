@@ -11,8 +11,8 @@ from app.core.config import (
 from app.core.utils.datetime import utc_now
 
 
-def make_token(data: dict) -> str:
-    to_encode = data.copy()
+def make_token(token_payload: dict) -> str:
+    to_encode = token_payload.copy()
     expire = utc_now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET, algorithm=ALGORITHM)
