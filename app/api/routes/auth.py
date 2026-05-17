@@ -4,7 +4,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.config import ALGORITHM, SECRET
-from app.core.security import make_token
+from app.core.security import get_password_hash, make_token, verify_password
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import LoginBody, RegisterBody
@@ -49,7 +49,11 @@ def register(body: RegisterBody, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="email already used")
 
-    user = User(name=body.name, email=body.email, password=body.password)
+    user = User(
+        name=body.name,
+        email=body.email,
+        password=get_password_hash(body.password),
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -70,7 +74,7 @@ def login(payload: LoginBody, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="email/password salah")
 
-    if payload.password != user.password:
+    if not verify_password(payload.password, str(user.password)):
         raise HTTPException(status_code=401, detail="email/password salah")
 
     token = make_token({"user_id": user.id, "email": user.email})
