@@ -63,9 +63,9 @@ def test_happy_path_notes_crud() -> None:
 
     list_res = client.get("/notes", headers=_auth_header(token))
     assert list_res.status_code == 200
-    payload = list_res.json()
-    assert payload["count"] == 1
-    assert payload["notes"][0]["id"] == note_id
+    notes_list_response = list_res.json()
+    assert notes_list_response["count"] == 1
+    assert notes_list_response["notes"][0]["id"] == note_id
 
     detail_res = client.get(f"/notes/{note_id}", headers=_auth_header(token))
     assert detail_res.status_code == 200
