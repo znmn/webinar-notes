@@ -4,7 +4,6 @@ from pydantic import BaseModel
 
 
 class NoteCreateBody(BaseModel):
-    user_id: int
     title: str
     description: Optional[str] = None
     category: str

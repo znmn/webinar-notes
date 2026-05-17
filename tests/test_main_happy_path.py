@@ -40,9 +40,6 @@ def test_happy_path_notes_crud() -> None:
         },
     )
     assert register_res.status_code == 200
-    registered_user = register_res.json()["user"]
-    user_id = registered_user["id"]
-
     login_res = client.post(
         "/login",
         json={"email": "alice@example.com", "password": "secret123"},
@@ -54,7 +51,6 @@ def test_happy_path_notes_crud() -> None:
         "/notes",
         headers=_auth_header(token),
         json={
-            "user_id": user_id,
             "title": "First note",
             "description": "This is a note",
             "category": "work",
@@ -135,7 +131,6 @@ def test_notes_access_isolated_per_user() -> None:
         "/notes",
         headers=_auth_header(token_user1),
         json={
-            "user_id": 99999,
             "title": "Private note",
             "description": "owned by bob",
             "category": "work",
@@ -143,7 +138,6 @@ def test_notes_access_isolated_per_user() -> None:
     )
     assert create_res.status_code == 200
     note_id = create_res.json()["note"]["id"]
-    assert create_res.json()["note"]["user_id"] != 99999
 
     user2_list = client.get("/notes", headers=_auth_header(token_user2))
     assert user2_list.status_code == 200
