@@ -54,6 +54,17 @@ def test_happy_path_notes_crud() -> None:
     )
     assert login_res.status_code == 200
     token = login_res.json()["access_token"]
+    categories_res = client.get("/categories", headers=_auth_header(token))
+    assert categories_res.status_code == 200
+    categories_payload = categories_res.json()
+    assert categories_payload["count"] == 5
+    assert [c["name"] for c in categories_payload["categories"]] == [
+        "finance",
+        "learning",
+        "other",
+        "personal",
+        "work",
+    ]
 
     create_res = client.post(
         "/notes",
