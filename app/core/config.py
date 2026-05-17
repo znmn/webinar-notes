@@ -39,4 +39,9 @@ SECRET = _get_env("SECRET")
 ALGORITHM = _get_env("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(_get_env("ACCESS_TOKEN_EXPIRE_MINUTES"))
 LOG_LEVEL = _get_env_with_default("LOG_LEVEL", "INFO").upper()
+APP_ENV = _get_env_with_default("APP_ENV", "dev").lower()
+if APP_ENV not in {"dev", "prod"}:
+    raise ValueError(
+        "Environment variable 'APP_ENV' must be either 'dev' or 'prod'"
+    )
 ALLOWED_CATEGORY = ["work", "personal", "finance", "learning", "other"]
