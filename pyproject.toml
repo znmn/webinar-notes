@@ -4,13 +4,52 @@ version = "0.1.0"
 description = "FastAPI notes backend"
 requires-python = ">=3.11"
 dependencies = [
-  "fastapi==0.115.6",
+  "fastapi>=0.116",
   "uvicorn[standard]==0.32.1",
   "sqlalchemy==2.0.36",
   "psycopg2-binary==2.9.10",
   "passlib[bcrypt]==1.7.4",
-  "PyJWT==2.10.1",
+  "pyjwt==2.12.0",
   "pydantic==2.10.3",
   "email-validator==2.2.0",
   "alembic>=1.18.4",
+  "starlette==0.49.1",
+]
+
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+src = ["app", "tests"]
+exclude = [
+  ".venv",
+  "__pycache__",
+  ".pytest_cache",
+  ".mypy_cache",
+  ".ruff_cache",
+  "build",
+  "dist",
+]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
+
+[tool.basedpyright]
+pythonVersion = "3.11"
+include = ["app", "tests"]
+exclude = [
+  ".venv",
+  "__pycache__",
+  ".pytest_cache",
+  ".mypy_cache",
+  ".ruff_cache",
+  "build",
+  "dist",
+]
+typeCheckingMode = "standard"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.39.4",
+    "pytest>=9.0.3",
+    "ruff>=0.15.13",
 ]
