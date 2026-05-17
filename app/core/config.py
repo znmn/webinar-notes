@@ -25,10 +25,23 @@ def _get_env(name: str) -> str:
     return value
 
 
+def _get_env_with_default(name: str, default: str) -> str:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return default
+    return value.strip()
+
+
 _load_env_file()
 
 DATABASE_URL = _get_env("DATABASE_URL")
 SECRET = _get_env("SECRET")
 ALGORITHM = _get_env("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(_get_env("ACCESS_TOKEN_EXPIRE_MINUTES"))
+LOG_LEVEL = _get_env_with_default("LOG_LEVEL", "INFO").upper()
+APP_ENV = _get_env_with_default("APP_ENV", "dev").lower()
+if APP_ENV not in {"dev", "prod"}:
+    raise ValueError(
+        "Environment variable 'APP_ENV' must be either 'dev' or 'prod'"
+    )
 ALLOWED_CATEGORY = ["work", "personal", "finance", "learning", "other"]
