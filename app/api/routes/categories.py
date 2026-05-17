@@ -8,7 +8,7 @@ from app.db.session import get_db
 from app.models.category import Category
 from app.schemas.category import CategoriesListResponse, CategoryResponse
 
-router = APIRouter()
+router = APIRouter(tags=["categories"])
 logger = get_logger(__name__)
 
 

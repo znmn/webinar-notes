@@ -17,7 +17,7 @@ from app.schemas.note import (
     NoteUpdateBody,
 )
 
-router = APIRouter()
+router = APIRouter(tags=["notes"])
 logger = get_logger(__name__)
 
 
