@@ -90,9 +90,6 @@ def create_note(
     if category is None:
         logger.info("Rejected create note due to invalid category")
         raise HTTPException(status_code=400, detail="invalid category")
-    if len(note_payload.title.strip()) == 0:
-        logger.info("Rejected create note due to empty title")
-        raise HTTPException(status_code=400, detail="title cannot be empty")
 
     note = Note(
         user_id=current_user.id,
@@ -161,12 +158,6 @@ def update_note(
         setattr(note, "category_id", category.id)
 
     if note_update_payload.title is not None:
-        if len(note_update_payload.title.strip()) == 0:
-            logger.info("Rejected update note due to empty title")
-            raise HTTPException(
-                status_code=400,
-                detail="title cannot be empty",
-            )
         setattr(note, "title", note_update_payload.title)
 
     if note_update_payload.description is not None:
