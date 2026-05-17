@@ -119,13 +119,17 @@ def login(
         ) from exc
     if not user:
         logger.info("Login failed, email not found: %s", login_body.email)
-        raise HTTPException(status_code=401, detail="email/password salah")
+        raise HTTPException(
+            status_code=401, detail="invalid email or password"
+        )
 
     if not verify_password(login_body.password, str(user.password)):
         logger.info(
             "Login failed, invalid password for email: %s", login_body.email
         )
-        raise HTTPException(status_code=401, detail="email/password salah")
+        raise HTTPException(
+            status_code=401, detail="invalid email or password"
+        )
 
     token = make_token({"user_id": user.id, "email": user.email})
     logger.info("Login success: user_id=%s", user.id)
